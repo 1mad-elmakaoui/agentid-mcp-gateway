@@ -1,0 +1,187 @@
+# The example MCP servers. Each verifies gateway-issued credentials for its own
+# audience and nothing else, so a token minted for one will not work at another.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: github-mcp
+  namespace: agentid
+  labels:
+    app.kubernetes.io/name: agentid
+    app.kubernetes.io/component: github-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: github-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agentid
+        app.kubernetes.io/component: github-mcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: server
+          image: ghcr.io/example/agentid:0.1.0
+          args:
+            - uvicorn
+            - agentid.servers.github.server:app
+            - --host=0.0.0.0
+            - --port=8001
+          ports:
+            - name: http
+              containerPort: 8001
+          env:
+            - name: AGENTID_SERVER_AUDIENCE
+              value: "agentid-mcp:github"
+          envFrom:
+            - secretRef:
+                name: agentid-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: github-mcp
+  namespace: agentid
+spec:
+  selector:
+    app.kubernetes.io/component: github-mcp
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-mcp
+  namespace: agentid
+  labels:
+    app.kubernetes.io/name: agentid
+    app.kubernetes.io/component: postgres-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: postgres-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agentid
+        app.kubernetes.io/component: postgres-mcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: server
+          image: ghcr.io/example/agentid:0.1.0
+          args:
+            - uvicorn
+            - agentid.servers.postgres.server:app
+            - --host=0.0.0.0
+            - --port=8002
+          ports:
+            - name: http
+              containerPort: 8002
+          env:
+            - name: AGENTID_SERVER_AUDIENCE
+              value: "agentid-mcp:database"
+          envFrom:
+            - secretRef:
+                name: agentid-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-mcp
+  namespace: agentid
+spec:
+  selector:
+    app.kubernetes.io/component: postgres-mcp
+  ports:
+    - name: http
+      port: 8002
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubernetes-mcp
+  namespace: agentid
+  labels:
+    app.kubernetes.io/name: agentid
+    app.kubernetes.io/component: kubernetes-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: kubernetes-mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: agentid
+        app.kubernetes.io/component: kubernetes-mcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: server
+          image: ghcr.io/example/agentid:0.1.0
+          args:
+            - uvicorn
+            - agentid.servers.kubernetes.server:app
+            - --host=0.0.0.0
+            - --port=8003
+          ports:
+            - name: http
+              containerPort: 8003
+          env:
+            - name: AGENTID_SERVER_AUDIENCE
+              value: "agentid-mcp:kubernetes"
+          envFrom:
+            - secretRef:
+                name: agentid-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-mcp
+  namespace: agentid
+spec:
+  selector:
+    app.kubernetes.io/component: kubernetes-mcp
+  ports:
+    - name: http
+      port: 8003
+      targetPort: http

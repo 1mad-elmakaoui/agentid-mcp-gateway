@@ -425,6 +425,11 @@ Access protected resources
 
 Non-user identities must remain separate from user identities.
 
+*Implemented by:* an API key can never produce a user persona; an agent token
+claiming `persona: user` is rejected at authentication; a machine token cannot
+be exchanged for a delegated token; an autonomous agent cannot be delegated to
+at all. Pinned by `tests/security/test_invariants.py::test_invariant_3_*`.
+
 ---
 
 ### Threat 2 — Privilege Escalation Through Agent
@@ -449,6 +454,10 @@ kubernetes.delete_namespace
 **Mitigation:**
 
 Effective permissions are constrained by the intersection of user and agent permissions.
+
+*Implemented by:* `AuthorizationEngine` evaluates the user's set and the agent's
+set independently and requires both to permit; a deny on either side rejects.
+Discovery uses the same engine, so the escalated tool is not even listed.
 
 ---
 
@@ -476,6 +485,11 @@ User → Service Account
 
 authorization before resolving the credential.
 
+*Implemented by:* `service_account_grants` rows, checked against the **human**
+in the chain when there is one, so an agent's own grant cannot be borrowed by a
+user who lacks it. The credential is never resolved on the denied path, so it
+cannot leak through a partially-completed request.
+
 ---
 
 ### Threat 4 — Credential Exposure
@@ -485,6 +499,10 @@ An agent attempts to obtain the API key used by a downstream MCP server.
 **Mitigation:**
 
 Credentials are resolved inside AgentID and attached to downstream requests without exposing them to the client or agent.
+
+*Implemented by:* secrets are sealed with Fernet at rest; there is no read path
+back out of the vault in the API; `SecretMaterial.__repr__` redacts its own
+value; audit details pass through a recursive redactor before storage.
 
 ---
 
@@ -510,6 +528,11 @@ Authentication succeeds, but authorization fails.
 Audit Event
 ```
 
+*Implemented by:* authorization runs before routing, so the downstream server
+never receives the request. Pinned by
+`test_invariant_5_authorization_precedes_routing`, which fails if the proxy ever
+forwards a denied call.
+
 ---
 
 ### Threat 6 — Audit Ambiguity
@@ -533,6 +556,10 @@ act = agent
 
 allowing the audit system to record both identities.
 
+*Implemented by:* `audit_events` carries `user_id`, `agent_id`,
+`service_account_id` and `execution_identity` as separate columns, populated
+from the request context on every path.
+
 ---
 
 ## 13. Security Invariants
@@ -551,6 +578,9 @@ The following properties must always hold:
 10. Downstream systems retain resource-level authorization.
 
 These invariants should be treated as security requirements rather than optional features.
+
+Each has a corresponding test in `tests/security/test_invariants.py`, named for
+the invariant it pins down.
 
 ---
 
@@ -603,6 +633,13 @@ Security tests should verify both allowed and denied behavior.
 ✓ User identity recorded
 ✓ Agent identity recorded
 ✓ Execution identity recorded
+```
+
+Run them with:
+
+```bash
+pytest tests/security -v
+pytest -m security
 ```
 
 ---

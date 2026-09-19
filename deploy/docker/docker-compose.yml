@@ -1,0 +1,68 @@
+# Local stack: the gateway, PostgreSQL, and the three example MCP servers.
+#
+#   docker compose -f deploy/docker/docker-compose.yml up --build
+#   docker compose -f deploy/docker/docker-compose.yml exec gateway agentid seed
+#
+# AGENTID_SECRET_KEY is shared with the example servers because tokens are
+# signed symmetrically in this version. See docs/roadmap.md.
+name: agentid
+
+x-common: &common
+  build:
+    context: ../..
+    dockerfile: deploy/docker/Dockerfile
+  environment: &common-env
+    AGENTID_SECRET_KEY: ${AGENTID_SECRET_KEY:-dev-only-insecure-secret-change-me}
+    AGENTID_JWT_ISSUER: agentid
+    AGENTID_ENVIRONMENT: ${AGENTID_ENVIRONMENT:-development}
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agentid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agentid}
+      POSTGRES_DB: agentid
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentid"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  gateway:
+    <<: *common
+    environment:
+      <<: *common-env
+      AGENTID_DATABASE_URL: postgresql+psycopg://agentid:${POSTGRES_PASSWORD:-agentid}@postgres:5432/agentid
+      AGENTID_CREDENTIAL_ENCRYPTION_KEY: ${AGENTID_CREDENTIAL_ENCRYPTION_KEY:-dev-only-vault-key}
+    command: ["uvicorn", "agentid.gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  github-mcp:
+    <<: *common
+    command: ["uvicorn", "agentid.servers.github.server:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+
+  postgres-mcp:
+    <<: *common
+    command: ["uvicorn", "agentid.servers.postgres.server:app", "--host", "0.0.0.0", "--port", "8002"]
+    ports:
+      - "8002:8002"
+
+  kubernetes-mcp:
+    <<: *common
+    command: ["uvicorn", "agentid.servers.kubernetes.server:app", "--host", "0.0.0.0", "--port", "8003"]
+    ports:
+      - "8003:8003"
+
+volumes:
+  pgdata:

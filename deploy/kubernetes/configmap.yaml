@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentid-config
+  namespace: agentid
+data:
+  AGENTID_ENVIRONMENT: "production"
+  AGENTID_JWT_ISSUER: "agentid"
+  AGENTID_JWT_AUDIENCE: "agentid-gateway"
+  AGENTID_ACCESS_TOKEN_TTL_SECONDS: "3600"
+  AGENTID_DELEGATED_TOKEN_TTL_SECONDS: "900"
+  AGENTID_DOWNSTREAM_TOKEN_TTL_SECONDS: "120"
+  AGENTID_RATE_LIMIT_ENABLED: "true"
+  AGENTID_RATE_LIMIT_REQUESTS: "600"
+  AGENTID_AUDIT_STDOUT: "true"

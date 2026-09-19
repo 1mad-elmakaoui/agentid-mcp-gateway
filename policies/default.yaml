@@ -1,0 +1,80 @@
+# AgentID default policy bundle.
+#
+# Roles are declarative: applying this file replaces the listed roles' entries.
+# Deny always wins over allow.
+roles:
+  - role: admin
+    description: Full gateway administration.
+    allow:
+      - agentid.admin
+      - github.**
+      - database.**
+      - kubernetes.**
+    deny:
+      - kubernetes.delete_namespace
+
+  - role: developer
+    description: Day-to-day engineering access.
+    allow:
+      - github.read
+      - github.create_issue
+      - github.get_issue
+      - github.list_issues
+      - github.search_repository
+      - database.read
+      - database.query
+      - database.list_tables
+      - database.describe_table
+    deny:
+      - kubernetes.delete_namespace
+      - database.drop
+      - production.deploy
+
+  - role: operator
+    description: Production operations, without destructive cluster actions.
+    allow:
+      - kubernetes.get_logs
+      - kubernetes.list_pods
+      - database.query
+      - database.list_tables
+      - github.search_repository
+    deny:
+      - kubernetes.delete_namespace
+
+  - role: coding-agent
+    description: Capabilities an interactive coding agent may exercise.
+    allow:
+      - github.read
+      - github.create_issue
+      - github.get_issue
+      - github.list_issues
+      - github.search_repository
+      - database.query
+      - database.list_tables
+    deny:
+      - kubernetes.**
+
+  - role: security-agent
+    description: Autonomous security monitoring.
+    allow:
+      - kubernetes.get_logs
+      - kubernetes.list_pods
+      - database.query
+    deny:
+      - kubernetes.delete_namespace
+      - github.**
+
+  - role: reporting
+    description: Read-only reporting, used by the reporting service account.
+    allow:
+      - database.query
+      - database.list_tables
+      - database.describe_table
+
+  - role: production-deployer
+    description: The privileged service account used for production changes.
+    allow:
+      - kubernetes.get_logs
+      - kubernetes.list_pods
+      - database.query
+      - github.create_issue
